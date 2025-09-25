@@ -2,10 +2,11 @@ import { Router, type Request, type Response } from "express";
 import bcrypt from "bcrypt";
 import User from "../models/userModel.js";
 import jwt, { type JwtPayload } from "jsonwebtoken";
+import { loginLimit, signupLimit } from "../middleware/rateLimit.js";
 
 const router = Router();
 
-router.post("/login", async (req: Request, res: Response) => {
+router.post("/login", loginLimit, async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   // find user by email
@@ -13,10 +14,10 @@ router.post("/login", async (req: Request, res: Response) => {
 
   // check if user exists and password is correct
   if (!user) {
-    return res.status(401).json({ message: "Email not found" });
+    return res.status(401).json({ emailError: "Email not found" });
   }
   if (!(await bcrypt.compare(password, user.password))) {
-    return res.status(401).json({ message: "Incorrect password" });
+    return res.status(401).json({ passwordError: "Incorrect password" });
   }
 
   const token = jwt.sign({ id: email }, process.env.JWT_SECRET!, { expiresIn: "1d" });
@@ -30,18 +31,35 @@ router.post("/login", async (req: Request, res: Response) => {
   res.status(200).json({ message: "Login successful" });
 });
 
-router.post("/signup", async (req: Request, res: Response) => {
+router.post("/signup", signupLimit, async (req: Request, res: Response) => {
   const { email, password, name } = req.body;
 
   if (!email || !password || !name) {
-    return res.status(400).json({ message: "All fields are required" });
+    return res.status(400).json({ nameError: "All fields are required" });
+  }
+
+  // check if name is between 2 and 15 characters
+  if (name.length < 2 || name.length > 15) {
+    return res.status(400).json({ nameError: "Name must be between 2 and 15 characters" });
   }
 
   const existingUser = await User.findOne({ email: email.toLowerCase() });
 
   // check if email already exists
   if (existingUser) {
-    return res.status(400).json({ message: "Email already exists" });
+    return res.status(400).json({ emailError: "Email already exists" });
+  }
+
+  // check password length
+  if (password.length < 8) {
+    return res.status(400).json({ passwordError: "Password must be at least 8 characters" });
+  } else if (password.length > 30) {
+    return res.status(400).json({ passwordError: "Password must be less than 30 characters" });
+  }
+
+  // check if password contains at least one number and atleast one letter
+  if (!/(?=.*[0-9])(?=.*[a-zA-Z])/.test(password)) {
+    return res.status(400).json({ passwordError: "Password must contain at least one letter and one number" });
   }
 
   // create new user
@@ -51,7 +69,7 @@ router.post("/signup", async (req: Request, res: Response) => {
     name: name[0].toUpperCase() + name.slice(1).toLowerCase(),
   });
   if (!user) {
-    return res.status(401).json({ message: "Registration failed" });
+    return res.status(401).json({ emailError: "Registration failed" });
   }
   res.status(201).json({ message: "Registration successful" });
 });
