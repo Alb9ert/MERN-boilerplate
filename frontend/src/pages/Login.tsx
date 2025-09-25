@@ -2,25 +2,33 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import api from "../config/api";
 import { Link } from "react-router-dom";
+import { MdOutlineError } from "react-icons/md";
 
 function Login() {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [emailError, setEmailError] = useState<string>("");
+  const [passwordError, setPasswordError] = useState<string>("");
 
   const mutation = useMutation({
     mutationFn: async (loginData: { email: string; password: string }) => {
       return api.post("/login", loginData);
     },
-    onSuccess: (data) => {
-      console.log("Login successful:", data);
+    onSuccess: () => {
+      setEmailError("");
+      setPasswordError("");
     },
-    onError: (error) => {
-      console.error("Login failed:", error);
+    onError: (error: { response?: { data?: { emailError?: string; passwordError?: string } } }) => {
+      setEmailError(error.response?.data?.emailError || "");
+      setPasswordError(error.response?.data?.passwordError || "");
     },
   });
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     mutation.mutate({
       email,
       password,
@@ -36,27 +44,47 @@ function Login() {
             <label htmlFor="email" className="block text-sm font-medium mb-2">
               Email
             </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-main-color focus:border-main-color"
-              placeholder="Enter your email"
-            />
+            <div className="relative">
+              <input
+                type="email"
+                required
+                id="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) setEmailError("");
+                }}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-main-color focus:border-main-color ${
+                  emailError ? "border-error-color" : "border-gray-300"
+                }`}
+                placeholder="Enter your email"
+              />
+              {emailError && <MdOutlineError className="absolute right-3 top-1/2 -translate-y-1/2 text-error-color" size={20} />}
+            </div>
+            {emailError && <p className="text-error-color text-xs mt-1">{emailError}</p>}
           </div>
           <div className="mb-6">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
               Password
             </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-main-color focus:border-main-color"
-              placeholder="Enter your password"
-            />
+            <div className="relative">
+              <input
+                type="password"
+                id="password"
+                required
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (passwordError) setPasswordError("");
+                }}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-main-color focus:border-main-color ${
+                  passwordError ? "border-error-color" : "border-gray-300"
+                }`}
+                placeholder="Enter your password"
+              />
+              {passwordError && <MdOutlineError className="absolute right-3 top-1/2 -translate-y-1/2 text-error-color" />}
+            </div>
+            {passwordError && <p className="text-error-color text-xs mt-1">{passwordError}</p>}
           </div>
           <button
             type="submit"
